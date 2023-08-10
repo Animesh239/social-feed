@@ -4,11 +4,13 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const multer = require('multer');
-const { graphqlHTTP } = require('express-graphql')
+const graphqlHttp = require('express-graphql');
+
+const graphqlSchema = require('./graphql/schema');
+const graphqlResolver = require('./graphql/resolvers');
+const auth = require('./middleware/auth');
 
 const app = express();
-const graphqlSchema = require('./graphql/schema')
-const graphqlResolver = require('./graphql/resolvers')
 
 const fileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -45,23 +47,31 @@ app.use((req, res, next) => {
     'OPTIONS, GET, POST, PUT, PATCH, DELETE'
   );
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
   next();
 });
 
-app.use('/graphql' ,({
-  schema : graphqlSchema , 
-  rootValue : graphqlResolver,
-  graphiql : true ,
-  formatError(err){
-    if(!err.originalError){
-      throw err ;
+app.use(auth);
+
+app.use(
+  '/graphql',
+  graphqlHttp({
+    schema: graphqlSchema,
+    rootValue: graphqlResolver,
+    graphiql: true,
+    formatError(err) {
+      if (!err.originalError) {
+        return err;
+      }
+      const data = err.originalError.data;
+      const message = err.message || 'An error occurred.';
+      const code = err.originalError.code || 500;
+      return { message: message, status: code, data: data };
     }
-    const data = err.originalError.data ;
-    const message = err.message || 'An error Occured';
-    const code = err.originalError.code || 500 ;
-    return {data : data , message: message , code :code}
-  } 
-}))
+  })
+);
 
 app.use((error, req, res, next) => {
   console.log(error);
@@ -79,3 +89,4 @@ mongoose
     app.listen(8080);
   })
   .catch(err => console.log(err));
+
