@@ -4,8 +4,11 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const multer = require('multer');
+const { graphqlHTTP } = require('express-graphql')
 
 const app = express();
+const graphqlSchema = require('./graphql/schema')
+const graphqlResolver = require('./graphql/resolvers')
 
 const fileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -45,7 +48,20 @@ app.use((req, res, next) => {
   next();
 });
 
-
+app.use('/graphql' ,({
+  schema : graphqlSchema , 
+  rootValue : graphqlResolver,
+  graphiql : true ,
+  formatError(err){
+    if(!err.originalError){
+      throw err ;
+    }
+    const data = err.originalError.data ;
+    const message = err.message || 'An error Occured';
+    const code = err.originalError.code || 500 ;
+    return {data : data , message: message , code :code}
+  } 
+}))
 
 app.use((error, req, res, next) => {
   console.log(error);
